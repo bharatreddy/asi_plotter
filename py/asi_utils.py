@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import aacgmv2
 from davitpy import utils
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 import seaborn as sns
 
 class UtilsASI(object):
@@ -62,10 +63,11 @@ class UtilsASI(object):
                 mlon, inpTime, m2a=False)
         return mlat, mlon, mlt
 
-    def overlay_asi_data(self, mapHandle, ax, inpTime=None, coords="mlt", overlayTime=True,\
-                        timeColor="black", timeFontSize=8., zorder=5., timeZorder=7.,\
-                         plotCBar=True, logScale=True, autoScale=True, vmin=0., vmax=10.,\
-                         plotTitle=True, titleString=None, alpha=0.7, ssusiCmap="Oranges"):
+    def overlay_asi_data(self, mapHandle, ax, inpTime=None, coords="mlt",\
+                        overlayTime=True,timeColor="black", timeFontSize=8., \
+                        zorder=5., plotCBar=True, logScale=True,\
+                        autoScale=True, vmin=0., vmax=10.,titleString=None,\
+                        alpha=0.7, ssusiCmap="Greens"):
         """
         Overlay ASI data on map
         """
@@ -80,6 +82,9 @@ class UtilsASI(object):
         mapTime = self.asiDict.keys()[selTimeIndex]
         if mapTime != inpTime:
             print "closest map time --->", mapTime
+            if delTimes[selTimeIndex]/60. > 10.:
+                print "PLEASE NOTE, YOUR SELECTED TIME HAS NO ASI" +\
+                         " DATA AND ACTUAL DATA PLOTTED IS FROM A DIFFERENT TIME"
         # get pixel data
         if logScale:
             pixData = numpy.log( self.asiDict[ mapTime ] )
@@ -120,6 +125,52 @@ class UtilsASI(object):
                             asiPix, zorder=8,
                             vmin=vmin, vmax=vmax,
                             ax=ax, alpha=alpha, cmap=ssusiCmap)
+        if overlayTime:
+            timeStr = "ASI time : " + \
+                    mapTime.strftime("%Y%m%d-%H%M") + " UT"
+            ax.annotate(timeStr, xy=(0, 0.95), xycoords='axes fraction',\
+                         fontsize=timeFontSize)
+        if titleString is not None:
+            ax.set_title( titleString )
+        # plot colorbar
+        if plotCBar:
+            cbar = plt.colorbar(asiPlot, orientation='vertical', ax=ax)
+            if logScale:
+                cbar.set_label('Rayleighs (log)', size=14)
+            else:
+                cbar.set_label('Rayleighs', size=14)
+
+
+    def plot_all_asi(self, outFile="../sample_figs/multipage.pdf",\
+                         coords="mlt", overlayTime=True,timeColor="black",\
+                         timeFontSize=8., zorder=5., plotCBar=True,\
+                         logScale=True, autoScale=True, vmin=0.,vmax=10.,\
+                         plotTitle=True, alpha=0.7, ssusiCmap="Greens"):
+
+        """
+        Create multiple maps from all the inpDir folder
+        Outfile is the output file where plots are stored.
+        """
+        pdf_pages = PdfPages(outFile)
+        for currTime in self.asiDict.keys():
+            print "plotting time-->", currTime
+            # setup a sample map
+            fig = plt.figure(figsize=(12, 8))
+            ax = fig.add_subplot(1,1,1)
+            mh = utils.plotUtils.mapObj(boundinglat=40., coords=coords,\
+                         lat_0=90., lon_0=0, datetime=currTime)
+            self.overlay_asi_data(mh, ax, inpTime=currTime, coords=coords,\
+                    overlayTime=False, timeColor=timeColor,\
+                    timeFontSize=timeFontSize, zorder=zorder,\
+                    plotCBar=plotCBar, logScale=logScale,\
+                    autoScale=autoScale,vmin=vmin, vmax=vmax,\
+                    alpha=alpha, ssusiCmap=ssusiCmap)
+            if plotTitle:
+                ax.set_title( currTime.strftime("%Y%m%d-%H%M") + " UT" )
+            # save the current figure into a pdf page
+            pdf_pages.savefig(fig)
+        pdf_pages.close()
+
 
 
 
