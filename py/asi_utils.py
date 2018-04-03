@@ -13,7 +13,8 @@ class UtilsASI(object):
     A class to Download SSUSI data
     given a date and datatype!
     """
-    def __init__(self, inpDir, inpGlatFile=None, inpGlonFile=None):
+    def __init__(self, inpDir, inpGlatFile=None,\
+                 inpGlonFile=None, inpElvFile=None):
         """
         Given a input dir read data from and setup base parameters
         if inpGlatFile and inpGlonFile are None then we expect to
@@ -26,6 +27,8 @@ class UtilsASI(object):
             self.glats = numpy.loadtxt(inpGlatFile)
         if inpGlonFile is not None:
             self.glons = numpy.loadtxt(inpGlonFile)
+        if inpElvFile is not None:
+            self.elvtns = numpy.loadtxt(inpElvFile)
         # Loop through the directory and parse dates
         # from the files!
         for pFn in os.listdir(inpDir):
@@ -39,6 +42,9 @@ class UtilsASI(object):
                 elif "glon" in pFn:
                     if inpGlonFile is None:
                         self.glons = numpy.loadtxt(inpDir + pFn)
+                elif "elev" in pFn:
+                    if inpElvFile is None:
+                        self.elvtns = numpy.loadtxt(inpDir + pFn)
                 else:
                     fNameList = pFn.split("_")
                     # Now check if the first element
@@ -48,7 +54,7 @@ class UtilsASI(object):
                         fDate = datetime.datetime.strptime(\
                                     fNameList[0], "%Y%m%d%H%M%S" )
                         self.asiDict[fDate] = numpy.loadtxt(inpDir + pFn)
-
+        # verify if the files have same data
         if self.glats.shape != self.glons.shape:
             print "glats and glons are not the same size!!".upper()
 
@@ -65,7 +71,7 @@ class UtilsASI(object):
 
     def overlay_asi_data(self, mapHandle, ax, inpTime=None, coords="mlt",\
                         overlayTime=True,timeColor="black", timeFontSize=8., \
-                        zorder=5., plotCBar=True, logScale=True,\
+                        zorder=5., plotCBar=True, logScale=False,\
                         autoScale=True, vmin=0., vmax=10.,titleString=None,\
                         alpha=0.7, ssusiCmap="Greens"):
         """
@@ -92,8 +98,12 @@ class UtilsASI(object):
             pixData = self.asiDict[ mapTime ]
 
         if autoScale:
-            vmin = 0.
-            vmax = numpy.round( numpy.max( pixData )/5. )*5.
+            if logScale:
+                vmin = 0.
+                vmax = numpy.round( numpy.max( pixData )/5. )*5.
+            else:
+                vmin = 0.
+                vmax = numpy.round( numpy.max( pixData )/1000. )*1000.
         # get appropriate lat/lon data
         if coords != "geo":
             mlats = numpy.zeros(shape=self.glats.shape)
@@ -118,9 +128,14 @@ class UtilsASI(object):
                 numpy.isnan(asiLats),asiLats)
         asiLons = numpy.ma.masked_where(\
                         numpy.isnan(asiLons),asiLons)
+        # Remove values where elevation is less than 15.
+        pixData = numpy.ma.masked_where(self.elvtns <= 15.,pixData)
+        asiLats = numpy.ma.masked_where(self.elvtns <= 15.,asiLats)
+        asiLons = numpy.ma.masked_where(self.elvtns <= 15.,asiLons)
         xVecs, yVecs = mapHandle(asiLons, asiLats,\
                                  coords=coords)        
         asiPix = numpy.ma.masked_where(numpy.isinf(pixData),pixData)
+        # Also mask values where
         asiPlot = mapHandle.pcolor(xVecs, yVecs,\
                             asiPix, zorder=8,
                             vmin=vmin, vmax=vmax,
@@ -144,9 +159,8 @@ class UtilsASI(object):
     def plot_all_asi(self, outFile="../sample_figs/multipage.pdf",\
                          coords="mlt", overlayTime=True,timeColor="black",\
                          timeFontSize=8., zorder=5., plotCBar=True,\
-                         logScale=True, autoScale=True, vmin=0.,vmax=10.,\
+                         logScale=False, autoScale=True, vmin=0.,vmax=10.,\
                          plotTitle=True, alpha=0.7, ssusiCmap="Greens"):
-
         """
         Create multiple maps from all the inpDir folder
         Outfile is the output file where plots are stored.
