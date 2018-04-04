@@ -95,15 +95,7 @@ class UtilsASI(object):
         if logScale:
             pixData = numpy.log( self.asiDict[ mapTime ] )
         else:
-            pixData = self.asiDict[ mapTime ]
-
-        if autoScale:
-            if logScale:
-                vmin = 0.
-                vmax = numpy.round( numpy.max( pixData )/5. )*5.
-            else:
-                vmin = 0.
-                vmax = numpy.round( numpy.max( pixData )/1000. )*1000.
+            pixData = self.asiDict[ mapTime ]        
         # get appropriate lat/lon data
         if coords != "geo":
             mlats = numpy.zeros(shape=self.glats.shape)
@@ -132,9 +124,19 @@ class UtilsASI(object):
         pixData = numpy.ma.masked_where(self.elvtns <= 15.,pixData)
         asiLats = numpy.ma.masked_where(self.elvtns <= 15.,asiLats)
         asiLons = numpy.ma.masked_where(self.elvtns <= 15.,asiLons)
+        
+        if autoScale:
+            if logScale:
+                vmin = 0.
+                vmax = numpy.round( numpy.max( pixData )/5. )*5.
+            else:
+                vmin = 0.
+                vmax = numpy.round( numpy.max( pixData )/1000. )*1000.
+
         xVecs, yVecs = mapHandle(asiLons, asiLats,\
                                  coords=coords)        
         asiPix = numpy.ma.masked_where(numpy.isinf(pixData),pixData)
+
         # Also mask values where
         asiPlot = mapHandle.pcolor(xVecs, yVecs,\
                             asiPix, zorder=8,
